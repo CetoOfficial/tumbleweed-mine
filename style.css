@@ -1209,3 +1209,22 @@ select.input-field option {
 .statut-select.status-att-paiement  { border-color: rgba(224,184,74,0.5); color: #e0b84a; }
 .statut-select.status-payee         { border-color: rgba(95,168,112,0.6); color: #5fa870; }
 .statut-select.status-annulee       { border-color: var(--border);        color: var(--text-dim); }
+
+/* ── GOOGLE SHEETS SYNC ───────────────────────────────────── */
+.sheets-sync-bar {
+  margin-bottom: 20px;
+}
+
+.sheets-sync-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid #4a8c4a;
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  margin-bottom: 0;
+}
+
+.opacity-50 { opacity: 0.5; }

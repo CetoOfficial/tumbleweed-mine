@@ -13,15 +13,21 @@
 //  ÉTAT GLOBAL DE L'APPLICATION
 // ──────────────────────────────────────────────────────────────
 let db = {
-  caisseDepart: 0,    // Caisse initiale définie par l'utilisateur
-  produits:    [],    // { id, nom, categorie, qte, unite, prixAchat, prixVente }
-  achats:      [],    // { id, produitId, nomProduit, qte, total, commentaire, date, heure }
-  ventes:      [],    // { id, produitId, nomProduit, qte, prixUnit, total, commentaire, date, heure }
-  commandes:   [],    // { id, numero, client, date, lignes, total, commentaire, statut, payeeLe }
-  depenses:    [],    // { id, categorie, montant, commentaire, date, heure }
-  employes:    [],    // { id, nom, metier, salaire, dernierPaiement }
-  historique:  [],    // { id, type, montant, commentaire, date, heure, ref? }
-  clotures:    [],    // { id, semaine, caisseDeb, entrees, sorties, benefice, caisseFin, date }
+  caisseDepart: 0,
+  produits:    [],
+  achats:      [],
+  ventes:      [],
+  commandes:   [],
+  depenses:    [],
+  employes:    [],
+  historique:  [],
+  clotures:    [],
+  sheets: {
+    apiKey:  'AIzaSyCj_olDrCLVzbmHmzPkp7OF7p2pGF3yfJA',
+    sheetId: '1IlosqEk4VyXUuLQsjRvCEM9rY-71l6tehb4p4AmxdiU',
+    lastSync: null,
+    lignes:  [],  // { nom, date, produit, quantite, prixUnit, total, importee }
+  },
 };
 
 let chartCaisse = null;
@@ -47,7 +53,8 @@ function loadDB() {
       const parsed = JSON.parse(raw);
       // Fusion avec les valeurs par défaut pour assurer la compatibilité
       db = Object.assign({ caisseDepart: 0, produits: [], achats: [], ventes: [],
-                           commandes: [], depenses: [], employes: [], historique: [], clotures: [] }, parsed);
+                           commandes: [], depenses: [], employes: [], historique: [], clotures: [],
+                           sheets: { apiKey: 'AIzaSyCj_olDrCLVzbmHmzPkp7OF7p2pGF3yfJA', sheetId: '1IlosqEk4VyXUuLQsjRvCEM9rY-71l6tehb4p4AmxdiU', lastSync: null, lignes: [] } }, parsed);
     } catch (e) {
       showToast('Données corrompues, réinitialisation', 'error');
     }
@@ -1280,28 +1287,201 @@ function deleteDepense(id) {
   });
 }
 
+
+// ══════════════════════════════════════════════════════════════
+//  GOOGLE SHEETS — SYNCHRONISATION
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Lit TOUTES les feuilles du Google Sheet automatiquement.
+ * Chaque feuille = 1 employé (nom de la feuille = prénom de l'employé)
+ * Colonnes : A=Date, B=Produit, C=Quantité, D=Prix unitaire
+ */
+async function syncGoogleSheets() {
+  const btn = document.getElementById('btn-sync-sheets');
+  if (btn) { btn.textContent = '⟳ Synchronisation...'; btn.disabled = true; }
+
+  try {
+    const { apiKey, sheetId } = db.sheets;
+
+    // 1. Récupérer la liste de toutes les feuilles
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?key=${apiKey}&fields=sheets.properties.title`;
+    const metaRes = await fetch(metaUrl);
+    if (!metaRes.ok) throw new Error(`Erreur API (méta) : ${metaRes.status}`);
+    const metaData = await metaRes.json();
+    const feuilles = (metaData.sheets || []).map(s => s.properties.title);
+
+    if (feuilles.length === 0) throw new Error('Aucune feuille trouvée');
+
+    let nouvelles = 0;
+    let ignorees  = 0;
+
+    // 2. Lire chaque feuille (= chaque employé)
+    for (const nomEmploye of feuilles) {
+      const range   = encodeURIComponent(`${nomEmploye}!A2:D1000`);
+      const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${apiKey}`;
+      const dataRes = await fetch(dataUrl);
+      if (!dataRes.ok) continue;
+      const data = await dataRes.json();
+      const rows = data.values || [];
+
+      rows.forEach(row => {
+        const date     = parseSheetDate(row[0] || '');
+        const produit  = (row[1] || '').trim();
+        const quantite = parseFloat(row[2]) || 0;
+        const prixUnit = parseFloat(row[3]) || 0;
+
+        if (!date || !produit || quantite <= 0) return;
+
+        // Clé unique pour éviter les doublons
+        const cle = `${nomEmploye}|${date}|${produit}|${quantite}`;
+        if (db.sheets.lignes.some(l => l.cle === cle)) { ignorees++; return; }
+
+        const total = parseFloat((quantite * prixUnit).toFixed(2));
+
+        // Enregistrer la ligne
+        db.sheets.lignes.push({
+          id: uid(), cle,
+          nom: nomEmploye, date, produit, quantite, prixUnit, total,
+          importeeLe: today(), payee: false
+        });
+
+        // Mettre à jour le stock
+        let p = db.produits.find(x => x.nom.toLowerCase() === produit.toLowerCase());
+        if (!p) {
+          p = { id: uid(), nom: produit, categorie: 'Production', qte: 0, unite: 'unités', prixAchat: prixUnit, prixVente: prixUnit };
+          db.produits.push(p);
+        }
+        p.qte += quantite;
+
+        // Créer l'employé automatiquement s'il n'existe pas encore
+        if (!db.employes.find(e => e.nom.toLowerCase() === nomEmploye.toLowerCase())) {
+          db.employes.push({ id: uid(), nom: nomEmploye, metier: 'Mineur', salaire: 0, dernierPaiement: null });
+        }
+
+        nouvelles++;
+      });
+    }
+
+    db.sheets.lastSync = new Date().toISOString();
+    saveDB();
+    renderEmployes();
+    renderStock();
+
+    showToast(`Sync terminée — ${feuilles.length} feuille(s), ${nouvelles} nouvelles lignes, ${ignorees} déjà importées`, 'success');
+
+  } catch (err) {
+    console.error(err);
+    showToast('Erreur : ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.textContent = '⟳ Synchroniser Google Sheets'; btn.disabled = false; }
+  }
+}
+
+/** Convertit JJ/MM/AAAA ou AAAA-MM-JJ en AAAA-MM-JJ */
+function parseSheetDate(str) {
+  if (!str) return '';
+  str = str.trim();
+  // Format JJ/MM/AAAA
+  const m1 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  // Format AAAA-MM-JJ déjà bon
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  return '';
+}
+
 // ──────────────────────────────────────────────────────────────
 //  EMPLOYÉS
 // ──────────────────────────────────────────────────────────────
 
 function renderEmployes() {
+  // Bouton sync + dernière sync
+  const lastSync = db.sheets.lastSync
+    ? 'Dernière sync : ' + new Date(db.sheets.lastSync).toLocaleString('fr-FR')
+    : 'Jamais synchronisé';
+  const syncBar = document.getElementById('sheets-sync-bar');
+  if (syncBar) {
+    syncBar.innerHTML = `
+      <div class="sheets-sync-info">
+        <span class="text-muted" style="font-size:12px">⟳ Google Sheets — ${lastSync}</span>
+        <button class="btn btn-gold btn-sm" id="btn-sync-sheets" onclick="syncGoogleSheets()">⟳ Synchroniser</button>
+      </div>
+      ${db.sheets.lignes.length > 0 ? renderSheetLignes() : ''}
+    `;
+  }
+
   const tbody = document.getElementById('employes-body');
   if (db.employes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-row">Aucun employé enregistré</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Aucun employé enregistré</td></tr>';
     return;
   }
-  tbody.innerHTML = db.employes.map(e => `
-    <tr>
+  tbody.innerHTML = db.employes.map(e => {
+    // Calculer ce qu'on doit à cet employé depuis les lignes Sheets non payées
+    const lignesNonPayees = db.sheets.lignes.filter(l =>
+      l.nom.toLowerCase() === e.nom.toLowerCase() && !l.payee
+    );
+    const totalDu = lignesNonPayees.reduce((s, l) => s + l.total, 0);
+
+    return `<tr>
       <td><strong>${esc(e.nom)}</strong></td>
       <td class="text-muted">${esc(e.metier) || '—'}</td>
       <td class="text-gold">${fmt(e.salaire)}</td>
+      <td class="${totalDu > 0 ? 'text-red' : 'text-muted'}" style="font-weight:${totalDu > 0 ? '600' : '400'}">
+        ${totalDu > 0 ? fmt(totalDu) : '—'}
+      </td>
       <td class="text-muted">${e.dernierPaiement ? fmtDate(e.dernierPaiement) : 'Jamais'}</td>
       <td>
         <button class="btn btn-rust btn-sm" onclick="openPayerEmploye('${e.id}')">Payer</button>
         <button class="btn-icon" onclick="editEmploye('${e.id}')" title="Modifier">✎</button>
         <button class="btn-icon danger" onclick="deleteEmploye('${e.id}')" title="Supprimer">✕</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+}
+
+function renderSheetLignes() {
+  // Grouper les lignes par employé
+  const byEmployee = {};
+  db.sheets.lignes.forEach(l => {
+    if (!byEmployee[l.nom]) byEmployee[l.nom] = [];
+    byEmployee[l.nom].push(l);
+  });
+
+  const rows = db.sheets.lignes
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 20)
+    .map(l => `
+      <tr class="${l.payee ? 'opacity-50' : ''}">
+        <td><strong>${esc(l.nom)}</strong></td>
+        <td class="text-muted">${fmtDate(l.date)}</td>
+        <td>${esc(l.produit)}</td>
+        <td>${l.quantite}</td>
+        <td>${fmt(l.prixUnit)}</td>
+        <td class="${l.payee ? 'text-muted' : 'text-gold'}">${fmt(l.total)}</td>
+        <td>${l.payee ? '<span class="text-green">✓ Payé</span>' : `<button class="btn-icon" onclick="marquerLignePayee('${l.id}')" title="Marquer payé">✓</button>`}</td>
+      </tr>`).join('');
+
+  return `
+    <div class="table-card" style="margin-top:16px">
+      <div class="table-card-header">
+        <h3>Productions importées depuis Google Sheets</h3>
+        <span class="text-muted" style="font-size:12px">${db.sheets.lignes.length} lignes au total</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Employé</th><th>Date</th><th>Produit</th><th>Qté</th><th>Prix/unité</th><th>Total dû</th><th>Statut</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function marquerLignePayee(id) {
+  const ligne = db.sheets.lignes.find(l => l.id === id);
+  if (!ligne) return;
+  ligne.payee = true;
+  saveDB();
+  renderEmployes();
+  showToast('Ligne marquée comme payée', 'success');
 }
 
 function openEmployeModal() {
@@ -1552,7 +1732,7 @@ function confirmReset() {
     '⚠ Réinitialisation complète',
     'Toutes les données (stock, achats, ventes, commandes, dépenses, employés, historique) seront supprimées. Cette action est IRRÉVERSIBLE.',
     () => {
-      db = { caisseDepart: 0, produits: [], achats: [], ventes: [], commandes: [], depenses: [], employes: [], historique: [], clotures: [] };
+      db = { caisseDepart: 0, produits: [], achats: [], ventes: [], commandes: [], depenses: [], employes: [], historique: [], clotures: [], sheets: { apiKey: 'AIzaSyCj_olDrCLVzbmHmzPkp7OF7p2pGF3yfJA', sheetId: '1IlosqEk4VyXUuLQsjRvCEM9rY-71l6tehb4p4AmxdiU', lastSync: null, lignes: [] } };
       saveDB();
       navigate('dashboard');
       showToast('Application réinitialisée', 'warning');
