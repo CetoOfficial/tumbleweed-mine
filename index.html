@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tumbleweed Mine — Gestion</title>
+  <!-- Polices chargées via CSS @import pour éviter les requêtes bloquantes -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">⛏</span>
+    <div class="brand-text">
+      <span class="brand-title">Tumbleweed</span>
+      <span class="brand-sub">Mine Co.</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="nav-item active" data-section="dashboard" href="javascript:void(0)">
+      <span class="nav-icon">◈</span>
+      <span class="nav-label">Tableau de bord</span>
+    </a>
+    <a class="nav-item" data-section="stock" href="javascript:void(0)">
+      <span class="nav-icon">▦</span>
+      <span class="nav-label">Stock</span>
+    </a>
+    <a class="nav-item" data-section="achats" href="javascript:void(0)">
+      <span class="nav-icon">↓</span>
+      <span class="nav-label">Achats</span>
+    </a>
+    <a class="nav-item" data-section="ventes" href="javascript:void(0)">
+      <span class="nav-icon">↑</span>
+      <span class="nav-label">Ventes</span>
+    </a>
+    <a class="nav-item" data-section="commandes" href="javascript:void(0)">
+      <span class="nav-icon">◻</span>
+      <span class="nav-label">Commandes</span>
+      <span class="nav-badge" id="badge-commandes">0</span>
+    </a>
+    <a class="nav-item" data-section="depenses" href="javascript:void(0)">
+      <span class="nav-icon">−</span>
+      <span class="nav-label">Dépenses</span>
+    </a>
+    <a class="nav-item" data-section="employes" href="javascript:void(0)">
+      <span class="nav-icon">♟</span>
+      <span class="nav-label">Employés</span>
+    </a>
+    <a class="nav-item" data-section="historique" href="javascript:void(0)">
+      <span class="nav-icon">≡</span>
+      <span class="nav-label">Historique</span>
+    </a>
+    <a class="nav-item" data-section="parametres" href="javascript:void(0)">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Paramètres</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-clock" id="sidebar-clock">--:--</div>
+    <div class="sidebar-date" id="header-date"></div>
+  </div>
+</aside>
+
+<button class="sidebar-toggle" id="sidebar-toggle" aria-label="Menu">☰</button>
+
+<!-- ═══════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════ -->
+<main class="main-content" id="main-content">
+
+
+  <!-- ── DASHBOARD ── -->
+  <section class="section" id="section-dashboard">
+
+    <!-- HERO : Caisse + semaine -->
+    <div class="dash-hero">
+
+      <!-- Caisse -->
+      <div class="hero-caisse">
+        <div class="hero-caisse-inner">
+          <div class="hero-caisse-label">CAISSE ACTUELLE</div>
+          <div class="hero-caisse-amount" id="cash-amount">$0.00</div>
+          <div class="hero-caisse-actions">
+            <button class="btn btn-gold" onclick="openModal('modal-depot')">+ Dépôt</button>
+            <button class="btn btn-rust" onclick="openModal('modal-retrait')">− Retrait</button>
+          </div>
+        </div>
+        <div class="hero-caisse-deco">⛏</div>
+      </div>
+
+      <!-- Semaine -->
+      <div class="hero-semaine">
+        <div class="hero-semaine-header">
+          <div class="hero-semaine-title">SEMAINE EN COURS</div>
+          <div class="hero-semaine-dates" id="week-label"></div>
+        </div>
+
+        <div class="hero-semaine-stats">
+          <div class="hero-stat entrees">
+            <div class="hero-stat-icon">↑</div>
+            <div class="hero-stat-body">
+              <div class="hero-stat-label">Entrées</div>
+              <div class="hero-stat-value" id="stat-entrees">$0.00</div>
+            </div>
+          </div>
+          <div class="hero-stat-sep"></div>
+          <div class="hero-stat sorties">
+            <div class="hero-stat-icon">↓</div>
+            <div class="hero-stat-body">
+              <div class="hero-stat-label">Sorties</div>
+              <div class="hero-stat-value" id="stat-sorties">$0.00</div>
+            </div>
+          </div>
+          <div class="hero-stat-sep"></div>
+          <div class="hero-stat benefice">
+            <div class="hero-stat-icon">◈</div>
+            <div class="hero-stat-body">
+              <div class="hero-stat-label">Bénéfice net</div>
+              <div class="hero-stat-value" id="stat-benefice">$0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-cloture" onclick="openCloture()">
+          <span class="btn-cloture-icon">⊠</span>
+          Clôturer la semaine
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Graphiques -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Évolution de la caisse — 7 jours</div>
+        <canvas id="chart-caisse" width="460" height="220" style="display:block;width:100%;max-width:100%"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Achats vs Ventes — 7 jours</div>
+        <canvas id="chart-av" width="460" height="220" style="display:block;width:100%;max-width:100%"></canvas>
+      </div>
+    </div>
+
+    <!-- Clôtures passées -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>Clôtures hebdomadaires</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Semaine</th><th>Caisse début</th><th>Entrées</th><th>Sorties</th><th>Bénéfice</th><th>Caisse fin</th><th></th></tr>
+        </thead>
+        <tbody id="clotures-body">
+          <tr><td colspan="7" class="empty-row">Aucune clôture enregistrée</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Dernières opérations -->
+    <div class="table-card">
+      <div class="table-card-header">
+        <h3>Opérations depuis la dernière clôture</h3>
+        <a href="javascript:void(0)" class="link-gold" onclick="navigate('historique');return false;">Historique complet →</a>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Heure</th><th>Type</th><th>Montant</th><th>Commentaire</th></tr>
+        </thead>
+        <tbody id="dash-history-body">
+          <tr><td colspan="5" class="empty-row">Aucune opération</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+
+  <!-- ── STOCK ── -->
+  <section class="section hidden" id="section-stock">
+    <div class="section-header">
+      <h1 class="section-title">Gestion du stock</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-produit')">+ Nouveau produit</button>
+    </div>
+    <div class="filters-bar">
+      <input type="text" class="input-search" id="stock-search" placeholder="Rechercher un produit..." oninput="filterStock()" />
+      <select class="input-select" id="stock-cat-filter" onchange="filterStock()">
+        <option value="">Toutes les catégories</option>
+      </select>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Nom</th><th>Catégorie</th><th>Quantité</th><th>Unité</th><th>Prix achat moy.</th><th>Prix vente</th><th>Valeur stock</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="stock-body">
+          <tr><td colspan="8" class="empty-row">Aucun produit en stock</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ACHATS ── -->
+  <section class="section hidden" id="section-achats">
+    <div class="section-header">
+      <h1 class="section-title">Achats</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-achat')">+ Nouvel achat</button>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Produit</th><th>Quantité</th><th>Prix total</th><th>Commentaire</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="achats-body">
+          <tr><td colspan="6" class="empty-row">Aucun achat enregistré</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── VENTES ── -->
+  <section class="section hidden" id="section-ventes">
+    <div class="section-header">
+      <h1 class="section-title">Ventes</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-vente')">+ Nouvelle vente</button>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Produit</th><th>Quantité</th><th>Prix unit.</th><th>Total</th><th>Commentaire</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="ventes-body">
+          <tr><td colspan="7" class="empty-row">Aucune vente enregistrée</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── COMMANDES ── -->
+  <section class="section hidden" id="section-commandes">
+    <div class="section-header">
+      <h1 class="section-title">Commandes clients</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-commande')">+ Nouvelle commande</button>
+    </div>
+    <div class="filters-bar">
+      <input type="text" class="input-search" id="cmd-search" placeholder="Rechercher..." oninput="filterCommandes()" />
+      <select class="input-select" id="cmd-client-filter" onchange="filterCommandes()">
+        <option value="">Tous les clients</option>
+      </select>
+      <select class="input-select" id="cmd-status-filter" onchange="filterCommandes()">
+        <option value="">Tous les statuts</option>
+        <option>En attente</option><option>En préparation</option><option>Prête</option>
+        <option>Livrée</option><option>En attente de paiement</option><option>Payée</option><option>Annulée</option>
+      </select>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>#</th><th>Client</th><th>Date</th><th>Total</th><th>Statut</th><th>Changer</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="commandes-body">
+          <tr><td colspan="6" class="empty-row">Aucune commande</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── DÉPENSES ── -->
+  <section class="section hidden" id="section-depenses">
+    <div class="section-header">
+      <h1 class="section-title">Dépenses</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-depense')">+ Nouvelle dépense</button>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Catégorie</th><th>Montant</th><th>Commentaire</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="depenses-body">
+          <tr><td colspan="5" class="empty-row">Aucune dépense</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── EMPLOYÉS ── -->
+  <section class="section hidden" id="section-employes">
+    <div class="section-header">
+      <h1 class="section-title">Employés</h1>
+      <button class="btn btn-gold" onclick="openModal('modal-employe')">+ Nouvel employé</button>
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Nom</th><th>Métier</th><th>Salaire habituel</th><th>Dernier paiement</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="employes-body">
+          <tr><td colspan="5" class="empty-row">Aucun employé</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── HISTORIQUE ── -->
+  <section class="section hidden" id="section-historique">
+    <div class="section-header">
+      <h1 class="section-title">Historique complet</h1>
+    </div>
+    <div class="filters-bar">
+      <input type="text" class="input-search" id="hist-search" placeholder="Rechercher..." oninput="filterHistorique()" />
+      <select class="input-select" id="hist-type-filter" onchange="filterHistorique()">
+        <option value="">Tous les types</option>
+        <option>Achat</option><option>Vente</option><option>Dépense</option>
+        <option>Salaire</option><option>Dépôt</option><option>Retrait</option>
+      </select>
+      <input type="date" class="input-select" id="hist-date-from" onchange="filterHistorique()" title="Du" />
+      <input type="date" class="input-select" id="hist-date-to" onchange="filterHistorique()" title="Au" />
+    </div>
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr><th>Date</th><th>Heure</th><th>Type</th><th>Montant</th><th>Commentaire</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="historique-body">
+          <tr><td colspan="6" class="empty-row">Aucune opération</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── PARAMÈTRES ── -->
+  <section class="section hidden" id="section-parametres">
+    <div class="section-header">
+      <h1 class="section-title">Paramètres</h1>
+    </div>
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h3>Caisse de départ</h3>
+        <p>Modifiez le montant initial de la caisse. Cela recalcule le solde sans supprimer l'historique.</p>
+        <div class="form-row">
+          <input type="number" class="input-field" id="param-caisse-depart" placeholder="Ex : 5000" step="0.01" />
+          <button class="btn btn-gold" onclick="saveCaisseDepart()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="settings-card">
+        <h3>Exporter les données</h3>
+        <p>Téléchargez toutes les données au format JSON pour les sauvegarder ou les transférer.</p>
+        <button class="btn btn-gold" onclick="exportData()">⬇ Exporter JSON</button>
+      </div>
+      <div class="settings-card">
+        <h3>Importer des données</h3>
+        <p>Restaurez un fichier JSON précédemment exporté. Les données actuelles seront remplacées.</p>
+        <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)" />
+        <button class="btn btn-gold" onclick="document.getElementById('import-file').click()">⬆ Importer JSON</button>
+      </div>
+      <div class="settings-card danger-card">
+        <h3>Réinitialisation complète</h3>
+        <p>Supprime absolument toutes les données. Cette action est <strong>irréversible</strong>. Exportez d'abord.</p>
+        <button class="btn btn-danger" onclick="confirmReset()">⚠ Réinitialiser</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeAllModals()"></div>
+
+<!-- Dépôt -->
+<div class="modal" id="modal-depot">
+  <div class="modal-header"><h2>Dépôt manuel</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <label class="form-label">Montant ($) *</label>
+    <input type="number" class="input-field" id="depot-montant" placeholder="Ex : 500" min="0.01" step="0.01" />
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="depot-commentaire" placeholder="Raison du dépôt..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveDepot()">Valider le dépôt</button>
+  </div>
+</div>
+
+<!-- Retrait -->
+<div class="modal" id="modal-retrait">
+  <div class="modal-header"><h2>Retrait manuel</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <label class="form-label">Montant ($) *</label>
+    <input type="number" class="input-field" id="retrait-montant" placeholder="Ex : 200" min="0.01" step="0.01" />
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="retrait-commentaire" placeholder="Raison du retrait..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-rust" onclick="saveRetrait()">Valider le retrait</button>
+  </div>
+</div>
+
+<!-- Produit -->
+<div class="modal" id="modal-produit">
+  <div class="modal-header"><h2 id="modal-produit-title">Nouveau produit</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="produit-id" />
+    <label class="form-label">Nom du produit *</label>
+    <input type="text" class="input-field" id="produit-nom" placeholder="Ex : Charbon brut" />
+    <label class="form-label">Catégorie</label>
+    <input type="text" class="input-field" id="produit-categorie" placeholder="Ex : Minerai, Carburant..." list="cat-suggestions" />
+    <datalist id="cat-suggestions"></datalist>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Quantité</label>
+        <input type="number" class="input-field" id="produit-qte" placeholder="0" min="0" step="0.01" />
+      </div>
+      <div>
+        <label class="form-label">Unité</label>
+        <input type="text" class="input-field" id="produit-unite" placeholder="kg, sacs..." list="unite-suggestions" />
+        <datalist id="unite-suggestions">
+          <option value="kg"><option value="sacs"><option value="caisses">
+          <option value="unités"><option value="barils"><option value="lingots">
+        </datalist>
+      </div>
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Prix d'achat moyen ($)</label>
+        <input type="number" class="input-field" id="produit-prix-achat" placeholder="0.00" min="0" step="0.01" />
+      </div>
+      <div>
+        <label class="form-label">Prix de vente ($)</label>
+        <input type="number" class="input-field" id="produit-prix-vente" placeholder="0.00" min="0" step="0.01" />
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveProduit()">Enregistrer</button>
+  </div>
+</div>
+
+<!-- Achat -->
+<div class="modal" id="modal-achat">
+  <div class="modal-header"><h2 id="modal-achat-title">Nouvel achat</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="achat-id" />
+    <label class="form-label">Produit *</label>
+    <select class="input-field" id="achat-produit" onchange="onAchatProduitChange()">
+      <option value="">-- Sélectionner un produit --</option>
+      <option value="__new__">+ Créer un nouveau produit</option>
+    </select>
+    <div id="achat-new-produit-fields" class="hidden">
+      <label class="form-label">Nom du nouveau produit</label>
+      <input type="text" class="input-field" id="achat-new-nom" placeholder="Nom du produit" />
+      <div class="form-row-2">
+        <div>
+          <label class="form-label">Catégorie</label>
+          <input type="text" class="input-field" id="achat-new-cat" placeholder="Catégorie" list="cat-suggestions" />
+        </div>
+        <div>
+          <label class="form-label">Unité</label>
+          <input type="text" class="input-field" id="achat-new-unite" placeholder="kg, sacs..." list="unite-suggestions" />
+        </div>
+      </div>
+      <label class="form-label">Prix de vente ($)</label>
+      <input type="number" class="input-field" id="achat-new-prix-vente" placeholder="0.00" min="0" step="0.01" />
+    </div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Quantité *</label>
+        <input type="number" class="input-field" id="achat-qte" placeholder="0" min="0.01" step="0.01" />
+      </div>
+      <div>
+        <label class="form-label">Prix total ($) *</label>
+        <input type="number" class="input-field" id="achat-total" placeholder="0.00" min="0" step="0.01" />
+      </div>
+    </div>
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="achat-commentaire" placeholder="Fournisseur, notes..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveAchat()">Valider l'achat</button>
+  </div>
+</div>
+
+<!-- Vente -->
+<div class="modal" id="modal-vente">
+  <div class="modal-header"><h2 id="modal-vente-title">Nouvelle vente</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="vente-id" />
+    <label class="form-label">Produit *</label>
+    <select class="input-field" id="vente-produit" onchange="onVenteProduitChange()">
+      <option value="">-- Sélectionner un produit --</option>
+    </select>
+    <div class="stock-info" id="vente-stock-info"></div>
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Quantité *</label>
+        <input type="number" class="input-field" id="vente-qte" placeholder="0" min="0.01" step="0.01" oninput="calcVenteTotal()" />
+      </div>
+      <div>
+        <label class="form-label">Prix unitaire ($)</label>
+        <input type="number" class="input-field" id="vente-prix-unit" placeholder="0.00" min="0" step="0.01" oninput="calcVenteTotal()" />
+      </div>
+    </div>
+    <div class="total-display" id="vente-total-display">Total : $0.00</div>
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="vente-commentaire" placeholder="Client, notes..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveVente()">Valider la vente</button>
+  </div>
+</div>
+
+<!-- Commande -->
+<div class="modal modal-large" id="modal-commande">
+  <div class="modal-header"><h2 id="modal-commande-title">Nouvelle commande</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="commande-id" />
+    <div class="form-row-2">
+      <div>
+        <label class="form-label">Client / Entreprise *</label>
+        <input type="text" class="input-field" id="commande-client" placeholder="Nom du client" />
+      </div>
+      <div>
+        <label class="form-label">Date</label>
+        <input type="date" class="input-field" id="commande-date" />
+      </div>
+    </div>
+    <label class="form-label" style="margin-top:12px">Produits *</label>
+    <div id="commande-lignes"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addLigneCommande()" style="margin-top:8px">+ Ajouter un produit</button>
+    <div class="total-display" id="commande-total-display" style="margin-top:12px">Total : $0.00</div>
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="commande-commentaire" placeholder="Notes..." />
+    <label class="form-label">Statut</label>
+    <select class="input-field" id="commande-statut">
+      <option>En attente</option><option>En préparation</option><option>Prête</option>
+      <option>Livrée</option><option>En attente de paiement</option><option>Payée</option><option>Annulée</option>
+    </select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveCommande()">Enregistrer la commande</button>
+  </div>
+</div>
+
+<!-- Voir commande -->
+<div class="modal modal-large" id="modal-voir-commande">
+  <div class="modal-header"><h2 id="voir-commande-title">Commande</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body" id="voir-commande-body"></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Fermer</button>
+  </div>
+</div>
+
+<!-- Dépense -->
+<div class="modal" id="modal-depense">
+  <div class="modal-header"><h2 id="modal-depense-title">Nouvelle dépense</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="depense-id" />
+    <label class="form-label">Catégorie *</label>
+    <select class="input-field" id="depense-categorie">
+      <option>Entretien</option><option>Matériel</option><option>Réparation</option><option>Divers</option>
+    </select>
+    <label class="form-label">Montant ($) *</label>
+    <input type="number" class="input-field" id="depense-montant" placeholder="0.00" min="0.01" step="0.01" />
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="depense-commentaire" placeholder="Détails..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-rust" onclick="saveDepense()">Enregistrer</button>
+  </div>
+</div>
+
+<!-- Employé -->
+<div class="modal" id="modal-employe">
+  <div class="modal-header"><h2 id="modal-employe-title">Nouvel employé</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="employe-id" />
+    <label class="form-label">Nom *</label>
+    <input type="text" class="input-field" id="employe-nom" placeholder="Prénom Nom" />
+    <label class="form-label">Métier</label>
+    <input type="text" class="input-field" id="employe-metier" placeholder="Mineur, Contremaître..." />
+    <label class="form-label">Salaire habituel ($)</label>
+    <input type="number" class="input-field" id="employe-salaire" placeholder="0.00" min="0" step="0.01" />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveEmploye()">Enregistrer</button>
+  </div>
+</div>
+
+<!-- Payer employé -->
+<div class="modal" id="modal-payer-employe">
+  <div class="modal-header"><h2 id="modal-payer-title">Payer un employé</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="payer-employe-id" />
+    <label class="form-label">Montant ($)</label>
+    <input type="number" class="input-field" id="payer-montant" placeholder="0.00" min="0.01" step="0.01" />
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="payer-commentaire" placeholder="Notes..." />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-rust" onclick="savePaiementEmploye()">Payer</button>
+  </div>
+</div>
+
+<!-- Édition historique -->
+<div class="modal" id="modal-edit-historique">
+  <div class="modal-header"><h2>Modifier l'opération</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body">
+    <input type="hidden" id="edit-hist-id" />
+    <label class="form-label">Commentaire</label>
+    <input type="text" class="input-field" id="edit-hist-commentaire" />
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveEditHistorique()">Enregistrer</button>
+  </div>
+</div>
+
+<!-- Confirmation -->
+<div class="modal modal-sm" id="modal-confirm">
+  <div class="modal-header"><h2 id="confirm-title">Confirmer</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body"><p id="confirm-message" style="color:var(--text-muted);line-height:1.6"></p></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-danger" id="confirm-btn">Confirmer</button>
+  </div>
+</div>
+
+<!-- Clôture hebdomadaire -->
+<div class="modal" id="modal-cloture">
+  <div class="modal-header"><h2>Clôture de la semaine</h2><button class="modal-close" onclick="closeAllModals()">✕</button></div>
+  <div class="modal-body" id="cloture-body"></div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeAllModals()">Annuler</button>
+    <button class="btn btn-gold" onclick="saveCloture()">Confirmer la clôture</button>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
